@@ -1,0 +1,225 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Insta Story 🦋</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body, html {
+            margin: 0; padding: 0;
+            background: #000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            height: 100%; width: 100%;
+            overflow: hidden; color: white;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        .story-wrapper {
+            width: 100%;
+            max-width: 450px; /* Desktop limit */
+            height: 100%;
+            position: relative;
+            background: #1a1a1a;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Responsive height for Desktop */
+        @media (min-width: 480px) {
+            .story-wrapper {
+                height: 92vh;
+                border-radius: 12px;
+            }
+        }
+
+        /* Top Bar: Progress + Profile (Like Instagram) */
+        .top-ui {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            padding: 12px 10px;
+            z-index: 100;
+            background: linear-gradient(180deg, rgba(0,0,0,0.4) 0%, transparent 100%);
+        }
+
+        /* Android/iOS Safe Area Padding */
+        @supports (padding-top: env(safe-area-inset-top)) {
+            .top-ui { padding-top: calc(env(safe-area-inset-top) + 10px); }
+        }
+
+        .progress-container {
+            display: flex; gap: 4px; margin-bottom: 12px;
+        }
+        .bar { height: 2px; flex: 1; background: rgba(255,255,255,0.35); border-radius: 10px; overflow: hidden; }
+        .bar-fill { height: 100%; background: white; width: 0%; transition: width 4.5s linear; }
+
+        .profile-header {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .profile-pic {
+            width: 34px; height: 34px; border-radius: 50%;
+            border: 1.5px solid white; background: #333; overflow: hidden;
+        }
+        .profile-pic img { width: 100%; height: 100%; object-fit: cover; }
+        .username { font-size: 14px; font-weight: 600; color: white; text-decoration: none; }
+
+        /* Story Content Area */
+        .story-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 0 40px;
+            text-align: center;
+            transition: background 0.4s ease;
+        }
+
+        h2 { font-family: 'Poppins', sans-serif; font-size: 1.9rem; margin-bottom: 15px; text-shadow: 0 2px 15px rgba(0,0,0,0.3); }
+        p { font-size: 1.25rem; line-height: 1.5; font-weight: 500; text-shadow: 0 1px 10px rgba(0,0,0,0.2); }
+
+        /* Navigation Zones */
+        .nav-zone { position: absolute; top: 0; height: 80%; width: 45%; z-index: 40; cursor: pointer; }
+
+        /* Bottom UI: Instagram Style Footer */
+        .bottom-ui {
+            padding: 15px 15px 35px 15px; /* Added extra bottom padding for mobile home indicators */
+            background: linear-gradient(0deg, rgba(0,0,0,0.5) 0%, transparent 100%);
+            display: flex; align-items: center; gap: 15px;
+            z-index: 100;
+        }
+
+        .message-box {
+            flex: 1;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.7);
+            border-radius: 25px;
+            padding: 10px 18px;
+            color: white;
+            font-size: 14px;
+            outline: none;
+        }
+        .message-box::placeholder { color: rgba(255,255,255,0.8); }
+
+        .like-btn {
+            width: 28px; height: 28px; cursor: pointer; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            fill: none; stroke: white; stroke-width: 2;
+        }
+        .like-btn.active { fill: #ff3040; stroke: #ff3040; transform: scale(1.2); }
+
+        #toast {
+            position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
+            background: rgba(255,255,255,0.95); color: #000; padding: 10px 25px;
+            border-radius: 30px; font-size: 13px; font-weight: 600; display: none; z-index: 200;
+        }
+    </style>
+</head>
+<body>
+
+    <audio id="bgMusic" loop>
+        <source src="https://www.chosic.com/wp-content/uploads/2021/04/And-So-It-Begins-Inspired-By-Crush.mp3" type="audio/mpeg">
+    </audio>
+
+    <div class="story-wrapper" onclick="handleFirstClick()">
+        <div class="top-ui">
+            <div class="progress-container" id="progressBars"></div>
+            <div class="profile-header">
+                <div class="profile-pic"><img src="hassan.jpg" alt="P"></div>
+                <div class="username">Oye_Hassan ♥</div>
+            </div>
+        </div>
+
+        <div class="nav-zone" style="left:0" onclick="prevStory()"></div>
+        <div class="nav-zone" style="right:0" onclick="nextStory()"></div>
+
+        <div class="story-content" id="storyDisplay"></div>
+
+        <div id="toast">Message sent! 💌</div>
+
+        <div class="bottom-ui">
+            <input type="text" class="message-box" id="msgInput" placeholder="Send message" onkeypress="handleKey(event)">
+            <svg class="like-btn" id="heartIcon" viewBox="0 0 24 24" onclick="celebrate()">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
+        </div>
+    </div>
+
+    <script>
+        const stories = [
+            { title: "Good morning ☀️", text: "Madam G <br> Hope your day starts with a smile 🤍", grad: "linear-gradient(180deg, #32cd32, #90ee90)" },
+            { title: "I Miss You 🤍", text: "Butterfly 🦋 <br> Just wanted to say you’ve been on my mind Always. 💫", grad: "linear-gradient(180deg, #00bfff, #87cefa)" },
+            { title: "I Love You 🤍", text: "Moti 🤍 <br> You mean more to me than words can say. 💫", grad: "linear-gradient(180deg, #ff1493, #ff69b4)" },
+            { title: "Waiting for You 🤍", text: "Churail 🤍 <br> Counting every moment until we Meet again 🌱", grad: "linear-gradient(180deg, #dc143c, #ff4500)" },
+            { title: "Be Happy 😊", text: "Mohtarma <br> Your boy is loyal and waiting for you 🦋", grad: "linear-gradient(180deg, #5d4037, #8d6e63)" }
+        ];
+
+        let currentIdx = 0;
+        let autoPlay;
+        let musicStarted = false;
+        const display = document.getElementById('storyDisplay');
+
+        // Progress Bars Setup
+        const progressContainer = document.getElementById('progressBars');
+        stories.forEach((_, i) => {
+            const bar = document.createElement('div');
+            bar.className = 'bar';
+            bar.innerHTML = `<div class="bar-fill" id="fill-${i}"></div>`;
+            progressContainer.appendChild(bar);
+        });
+
+        function handleFirstClick() {
+            if (!musicStarted) {
+                document.getElementById('bgMusic').play().catch(() => {});
+                musicStarted = true;
+            }
+        }
+
+        function updateStory() {
+            clearTimeout(autoPlay);
+            const s = stories[currentIdx];
+            display.style.background = s.grad;
+            display.innerHTML = `<h2>${s.title}</h2><p>${s.text}</p>`;
+
+            stories.forEach((_, i) => {
+                const fill = document.getElementById(`fill-${i}`);
+                fill.style.transition = 'none';
+                if (i < currentIdx) fill.style.width = "100%";
+                else if (i === currentIdx) {
+                    fill.style.width = "0%";
+                    setTimeout(() => { fill.style.transition = 'width 4.5s linear'; fill.style.width = "100%"; }, 50);
+                } else fill.style.width = "0%";
+            });
+
+            autoPlay = setTimeout(nextStory, 4500);
+        }
+
+        function nextStory() { if (currentIdx < stories.length - 1) { currentIdx++; updateStory(); } }
+        function prevStory() { if (currentIdx > 0) { currentIdx--; updateStory(); } }
+
+        function celebrate() {
+            const heart = document.getElementById('heartIcon');
+            heart.classList.add('active');
+            confetti({
+                particleCount: 80, spread: 60, origin: { y: 0.8 },
+                colors: ['#ff3040', '#ffffff'], ticks: 200
+            });
+            setTimeout(() => heart.classList.remove('active'), 1000);
+        }
+
+        function handleKey(e) {
+            if (e.key === "Enter" && e.target.value.trim() !== "") {
+                const toast = document.getElementById('toast');
+                toast.style.display = "block";
+                e.target.value = "";
+                setTimeout(() => toast.style.display = "none", 2000);
+            }
+        }
+
+        updateStory();
+    </script>
+</body>
+</html>
